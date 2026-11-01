@@ -100,9 +100,9 @@ Excel originales hay que regenerarlos con `python prepare_data.py`.
 ### Mapa – Total de muertes por departamento
 ![Mapa](screenshots/mapa.png)
 
-Mapa coroplético: cuanto más oscuro el departamento, más defunciones. **Bogotá D.C. (38.760),
-Antioquia (34.473) y Valle del Cauca (28.443)** concentran el 41,6 % de las muertes del país, lo
-que refleja principalmente su tamaño poblacional. Los departamentos de la Orinoquía y Amazonía
+Mapa coroplético: cuanto más oscuro el departamento, mayor el número de muertes. **Bogotá D.C. (38.760),
+Antioquia (34.473) y Valle del Cauca (28.443)** concentran el 41,6 % de las muertes del país, valores directamente proprocionales
+a su tamaño poblacional. Los departamentos de la Orinoquía y Amazonía
 (Vichada, Guainía, Vaupés) registran menos de 200 muertes cada uno.
 
 ### Gráfico de líneas – Muertes por mes
