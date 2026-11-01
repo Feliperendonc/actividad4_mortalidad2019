@@ -1,7 +1,7 @@
 # Mortalidad en Colombia 2019 – Aplicación web dinámica con Dash
 
-**Integrantes:** Oscar Felipe Rendón Cruz · _(agregar los demás integrantes)_
-**Aplicación desplegada:** https://actividad4-mortalidad2019.onrender.com _(confirmar con la URL que asigne Render)_
+**Integrantes:** Oscar Felipe Rendón Cru
+**Aplicación desplegada:** https://actividad4-mortalidad2019.onrender.com
 **Repositorio:** https://github.com/Feliperendonc/actividad4_mortalidad2019
 
 ## 1. Introducción
