@@ -69,28 +69,78 @@ mort["CATEGORIA_EDAD"] = mort["GRUPO_EDAD1"].map(MAPA_EDAD)
 # 2. GeoJSON de departamentos (para el mapa coroplético)
 # ---------------------------------------------------------------------------
 GEOJSON_PATH = DATA / "colombia_departamentos.geojson"
-GEOJSON_URL = "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/Colombia.geo.json"
+# Gist público con los polígonos de los departamentos de Colombia.
+# Se consulta la API de GitHub para obtener la URL real del archivo (evita errores 404).
+GIST_API = "https://api.github.com/gists/43c7656821069d00dcbc"
+GEOJSON_URLS = [
+    "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/colombia.geo.json",
+    "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/Colombia.geo.json",
+]
+
+
+def _descargar(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "dash-mortalidad-app"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return r.read()
+
+
+def _urls_candidatas():
+    urls = []
+    try:  # 1) URL exacta del archivo según la API de GitHub
+        info = json.loads(_descargar(GIST_API))
+        urls += [f["raw_url"] for f in info["files"].values() if f["filename"].endswith("json")]
+    except Exception as e:
+        print(f"[aviso] API de GitHub no disponible ({e}).")
+    return urls + GEOJSON_URLS  # 2) URLs directas de respaldo
+
+
+def _sin_tildes(txt):
+    import unicodedata
+    txt = unicodedata.normalize("NFKD", str(txt).upper())
+    return "".join(c for c in txt if not unicodedata.combining(c)).replace(".", "").replace(",", "").strip()
 
 
 def cargar_geojson():
-    """Usa el archivo local; si no existe, intenta descargarlo una vez."""
+    """Usa el archivo local data/colombia_departamentos.geojson; si no existe, lo descarga."""
     if not GEOJSON_PATH.exists():
-        try:
-            with urllib.request.urlopen(GEOJSON_URL, timeout=15) as r:
-                GEOJSON_PATH.write_bytes(r.read())
-        except Exception as e:  # sin internet -> se usa el mapa de burbujas
-            print(f"[aviso] No se pudo descargar el GeoJSON ({e}). Se usará mapa de burbujas.")
+        for url in _urls_candidatas():
+            try:
+                contenido = _descargar(url)
+                json.loads(contenido)  # valida que sea JSON
+                GEOJSON_PATH.write_bytes(contenido)
+                print(f"[ok] GeoJSON descargado de {url}")
+                break
+            except Exception as e:
+                print(f"[aviso] Falló {url} ({e}).")
+        else:
+            print("[aviso] No se pudo obtener el GeoJSON. Se usará mapa de burbujas.")
             return None
     with open(GEOJSON_PATH, encoding="utf-8") as f:
         geo = json.load(f)
-    # Detecta qué propiedad del GeoJSON contiene el código DANE del departamento
-    # y la normaliza en 'COD_DPTO' (2 dígitos), para que funcione con cualquier fuente.
+
+    # Normaliza el código de departamento en la propiedad 'COD_DPTO' (2 dígitos).
+    # a) Busca la propiedad cuyos valores coinciden con los códigos DANE.
     codigos = set(deptos["COD_DEPARTAMENTO"])
-    props = geo["features"][0]["properties"].keys()
-    mejor = max(props, key=lambda k: sum(str(f["properties"].get(k, "")).zfill(2) in codigos
-                                          for f in geo["features"]))
-    for f in geo["features"]:
-        f["properties"]["COD_DPTO"] = str(f["properties"].get(mejor, "")).zfill(2)
+    feats = geo["features"]
+    props = feats[0]["properties"].keys()
+    def coincidencias_codigo(k):
+        return sum(str(f["properties"].get(k, "")).split(".")[0].zfill(2) in codigos for f in feats)
+    mejor = max(props, key=coincidencias_codigo)
+    if coincidencias_codigo(mejor) >= 20:
+        for f in feats:
+            f["properties"]["COD_DPTO"] = str(f["properties"].get(mejor, "")).split(".")[0].zfill(2)
+        return geo
+    # b) Si no hay códigos, cruza por nombre del departamento.
+    por_nombre = {_sin_tildes(n): c for c, n in zip(divipola["COD_DEPARTAMENTO"], divipola["DEPARTAMENTO"])}
+    por_nombre.update({"BOGOTA": "11", "SANTAFE DE BOGOTA DC": "11", "BOGOTA DC": "11",
+                       "SAN ANDRES": "88", "SAN ANDRES Y PROVIDENCIA": "88",
+                       "ARCHIPIELAGO DE SAN ANDRES": "88", "VALLE": "76", "GUAJIRA": "44",
+                       "NORTE SANTANDER": "54"})
+    def coincidencias_nombre(k):
+        return sum(_sin_tildes(f["properties"].get(k, "")) in por_nombre for f in feats)
+    mejor = max(props, key=coincidencias_nombre)
+    for f in feats:
+        f["properties"]["COD_DPTO"] = por_nombre.get(_sin_tildes(f["properties"].get(mejor, "")), "")
     return geo
 
 
